@@ -1,0 +1,707 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>バナーチェック - スワイプUI</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #0f1117;
+    color: #e0e0e0;
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    user-select: none;
+  }
+
+  /* Header */
+  .header {
+    padding: 14px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid #1e2030;
+    flex-shrink: 0;
+  }
+  .header h1 { font-size: 17px; font-weight: 600; }
+
+  .progress { display: flex; align-items: center; gap: 10px; }
+  .progress-bar { width: 120px; height: 6px; background: #1e2030; border-radius: 3px; overflow: hidden; }
+  .progress-fill { height: 100%; background: #6366f1; border-radius: 3px; transition: width 0.4s ease; }
+  .progress-num { font-size: 13px; color: #6b7280; }
+
+  .stats { display: flex; gap: 16px; font-size: 13px; }
+  .s-ok { color: #4ade80; }
+  .s-ng { color: #f87171; }
+
+  /* ===== Swipe Phase ===== */
+  .phase-swipe { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; overflow: hidden; padding: 16px 20px; }
+
+  .stack {
+    position: relative;
+    width: 100%; max-width: 520px;
+    height: min(50vh, 400px);
+  }
+
+  .swipe-card {
+    position: absolute; inset: 0; border-radius: 16px; overflow: hidden;
+    background: #1c1f2e; box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+    will-change: transform; touch-action: none;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .swipe-card img {
+    max-width: 100%; max-height: 100%;
+    object-fit: contain; display: block; pointer-events: none;
+  }
+
+  .overlay-label {
+    position: absolute; top: 24px; padding: 8px 24px; border-radius: 8px;
+    font-size: 28px; font-weight: 800; letter-spacing: 2px; opacity: 0; pointer-events: none;
+  }
+  .label-ok { right: 24px; background: rgba(34,197,94,0.9); color: #fff; transform: rotate(12deg); }
+  .label-ng { left: 24px; background: rgba(239,68,68,0.9); color: #fff; transform: rotate(-12deg); }
+
+  .card-counter {
+    position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%);
+    background: rgba(0,0,0,0.6); padding: 4px 14px; border-radius: 12px;
+    font-size: 12px; color: #aaa; pointer-events: none;
+  }
+
+  /* Buttons */
+  .actions { display: flex; gap: 24px; margin-top: 24px; align-items: center; flex-shrink: 0; }
+
+  /* AI Recommend Box */
+  .ai-box {
+    margin-top: 16px;
+    width: 100%;
+    max-width: 520px;
+    background: #161930;
+    border: 1px solid #2d3060;
+    border-radius: 12px;
+    padding: 12px 16px;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    opacity: 0;
+    transform: translateY(6px);
+    transition: opacity 0.3s, transform 0.3s;
+    pointer-events: none;
+    min-height: 0;
+  }
+
+  .ai-box.visible {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+  }
+
+  .ai-box.hidden {
+    opacity: 0;
+    height: 0;
+    padding: 0;
+    margin: 0;
+    border: none;
+    overflow: hidden;
+  }
+
+  .ai-icon {
+    width: 28px; height: 28px; min-width: 28px;
+    border-radius: 8px;
+    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 700; color: #fff;
+    margin-top: 1px;
+  }
+
+  .ai-body {
+    font-size: 13px;
+    line-height: 1.6;
+    color: #b0b4d0;
+  }
+
+  .ai-body strong { color: #c7d2fe; }
+  .ai-status-ok { color: #4ade80; font-weight: 600; }
+  .ai-status-ng { color: #f87171; font-weight: 600; }
+  .act-btn {
+    width: 64px; height: 64px; border-radius: 50%; border: 2px solid; background: transparent;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; transition: all 0.2s; font-size: 24px;
+  }
+  .act-btn:active { transform: scale(0.9); }
+  .btn-undo { width: 48px; height: 48px; border-color: #6b7280; color: #6b7280; font-size: 18px; }
+  .btn-undo:hover { background: #6b7280; color: #fff; }
+  .act-ng { border-color: #ef4444; color: #ef4444; }
+  .act-ng:hover { background: #ef4444; color: #fff; }
+  .act-ok { border-color: #22c55e; color: #22c55e; }
+  .act-ok:hover { background: #22c55e; color: #fff; }
+
+  .hint {
+    position: fixed; bottom: 12px; left: 50%; transform: translateX(-50%);
+    font-size: 11px; color: #4b5563; display: flex; gap: 14px;
+  }
+  .hint kbd { background: #1e2030; padding: 2px 6px; border-radius: 3px; color: #9ca3af; }
+
+  @keyframes flyRight { to { transform: translateX(150%) rotate(20deg); opacity: 0; } }
+  @keyframes flyLeft  { to { transform: translateX(-150%) rotate(-20deg); opacity: 0; } }
+  .fly-right { animation: flyRight 0.35s ease forwards; }
+  .fly-left  { animation: flyLeft  0.35s ease forwards; }
+
+  /* ===== NG Review Phase ===== */
+  .phase-review {
+    display: none; flex: 1; flex-direction: column; overflow: hidden;
+  }
+  .phase-review.active { display: flex; }
+
+  .review-header {
+    padding: 20px 24px 12px; border-bottom: 1px solid #1e2030; flex-shrink: 0;
+  }
+  .review-header h2 { font-size: 18px; margin-bottom: 4px; }
+  .review-header p { font-size: 13px; color: #6b7280; }
+
+  .review-list {
+    flex: 1; overflow-y: auto; padding: 12px;
+    display: flex; flex-direction: column; gap: 12px;
+  }
+
+  .review-item {
+    display: flex; flex-direction: column; background: #1c1f2e; border-radius: 12px;
+    overflow: hidden; flex-shrink: 0;
+  }
+
+  .review-thumb-wrap {
+    background: #111;
+  }
+
+  .review-thumb {
+    width: 100%; max-height: 180px;
+    object-fit: contain; display: block;
+    background: #111;
+  }
+
+  .review-body {
+    padding: 10px 12px;
+    display: flex; flex-direction: column; gap: 8px;
+  }
+
+  @media (min-width: 600px) {
+    .review-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+    }
+    .review-item { flex-direction: row; }
+    .review-thumb-wrap { width: 180px; min-width: 180px; }
+    .review-thumb { height: 100%; }
+    .review-body { justify-content: center; }
+  }
+
+  .review-label {
+    font-size: 12px; color: #f87171; font-weight: 600;
+    display: flex; align-items: center; gap: 6px;
+  }
+
+  .review-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+
+  .r-tag {
+    padding: 6px 14px; border-radius: 6px; border: 1px solid #2a2d3a;
+    background: transparent; color: #d1d5db; font-size: 12px;
+    cursor: pointer; transition: all 0.15s;
+  }
+  .r-tag:hover { border-color: #ef4444; color: #f87171; }
+  .r-tag.active { background: #ef4444; border-color: #ef4444; color: #fff; }
+
+  .r-detail {
+    width: 100%;
+    background: #141625;
+    border: 1px solid #2a2d3a;
+    border-radius: 8px;
+    padding: 8px 10px;
+    color: #e0e0e0;
+    font-size: 12px;
+    font-family: inherit;
+    resize: vertical;
+    min-height: 60px;
+    display: none;
+    line-height: 1.5;
+  }
+  .r-detail.show { display: block; }
+  .r-detail::placeholder { color: #4b5563; }
+  .r-detail:focus { outline: none; border-color: #ef4444; }
+
+  .r-ditto {
+    padding: 6px 14px; border-radius: 6px;
+    border: 1px dashed #6366f1;
+    background: transparent; color: #a5b4fc; font-size: 12px;
+    cursor: pointer; transition: all 0.15s;
+    display: none;
+  }
+  .r-ditto.show { display: inline-flex; align-items: center; gap: 4px; }
+  .r-ditto:hover { background: #6366f1; color: #fff; border-style: solid; }
+
+  .r-ditto-preview {
+    max-width: 200px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    font-size: 11px; opacity: 0.7;
+  }
+
+  .review-footer {
+    padding: 16px 24px; border-top: 1px solid #1e2030;
+    display: flex; justify-content: flex-end; gap: 12px; flex-shrink: 0;
+  }
+
+  .review-done-btn {
+    padding: 12px 32px; border: none; border-radius: 10px;
+    background: #6366f1; color: #fff; font-size: 14px; font-weight: 600;
+    cursor: pointer; transition: background 0.15s;
+  }
+  .review-done-btn:hover { background: #4f46e5; }
+
+  /* ===== Done Phase ===== */
+  .phase-done {
+    display: none; flex: 1; justify-content: center; align-items: center;
+  }
+  .phase-done.active { display: flex; }
+
+  .done-box { text-align: center; }
+  .done-box h2 { font-size: 24px; margin-bottom: 12px; }
+  .done-box p { color: #6b7280; font-size: 14px; margin-bottom: 24px; }
+  .done-results { display: flex; gap: 32px; justify-content: center; font-size: 20px; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>バナーチェック</h1>
+  <div class="progress">
+    <div class="progress-bar"><div class="progress-fill" id="pFill"></div></div>
+    <span class="progress-num" id="pText">0 / 0</span>
+  </div>
+  <div class="stats">
+    <span class="s-ok" id="sOk">OK: 0</span>
+    <span class="s-ng" id="sNg">NG: 0</span>
+  </div>
+</div>
+
+<!-- Phase 1: Swipe -->
+<div class="phase-swipe" id="phaseSwipe">
+  <div class="stack" id="stack"></div>
+  <div class="actions" id="actionBtns">
+    <button class="act-btn btn-undo" id="btnUndo" title="戻す (Z)">↩</button>
+    <button class="act-btn act-ng" id="btnNg" title="NG (←)">✕</button>
+    <button class="act-btn act-ok" id="btnOk" title="OK (→)">✓</button>
+  </div>
+  <div class="ai-box" id="aiBox">
+    <div class="ai-icon">AI</div>
+    <div class="ai-body" id="aiBody"></div>
+  </div>
+</div>
+
+<!-- Phase 2: NG Review -->
+<div class="phase-review" id="phaseReview">
+  <div class="review-header">
+    <h2>NGバナーの理由を確認</h2>
+    <p id="reviewSubtext">NGにしたバナーにNG理由をタグ付けしてください</p>
+  </div>
+  <div class="review-list" id="reviewList"></div>
+  <div class="review-footer">
+    <button class="review-done-btn" id="reviewDone">完了</button>
+  </div>
+</div>
+
+<!-- Phase 3: Done -->
+<div class="phase-done" id="phaseDone">
+  <div class="done-box">
+    <h2>チェック完了</h2>
+    <p>すべてのバナーをチェックしました</p>
+    <div class="done-results">
+      <span class="s-ok" id="finalOk"></span>
+      <span class="s-ng" id="finalNg"></span>
+    </div>
+  </div>
+</div>
+
+<div class="hint" id="hintBar">
+  <span><kbd>→</kbd> OK</span>
+  <span><kbd>←</kbd> NG</span>
+  <span><kbd>Z</kbd> 戻す</span>
+</div>
+
+<script>
+const NG_CATEGORIES = [
+  { key: 'ng_word',   label: 'NGワード修正', placeholder: '例: 便秘はNG、宿便に変更' },
+  { key: 'add_note',  label: '注釈追加',     placeholder: '例: ※画像はイメージ' },
+  { key: 'del_note',  label: '注釈削除',     placeholder: '例: 全ての注釈を削除' },
+  { key: 'fix_text',  label: 'テキスト修正', placeholder: '例: 1杯50円→99円に修正' },
+  { key: 'del_elem',  label: '要素削除',     placeholder: '例: 「※パッケージは〜」を削除' },
+  { key: 'expression', label: '表現NG',      placeholder: '例: 医師が効果を断定している表現はNG' },
+  { key: 'other',     label: 'その他',       placeholder: '詳細を記入' },
+];
+
+const BANNERS = [
+  // 横長 (1200x628) - Facebook/Display広告
+  { id: 1,  group: 'A', img: 'https://picsum.photos/seed/cosmA1/1200/628' },
+  { id: 2,  group: 'B', img: 'https://picsum.photos/seed/techB1/1200/628' },
+  { id: 3,  group: 'A', img: 'https://picsum.photos/seed/cosmA2/1200/628' },
+  { id: 4,  group: 'C', img: 'https://picsum.photos/seed/foodC1/1200/628' },
+  { id: 5,  group: 'D', img: 'https://picsum.photos/seed/fashD1/1200/628' },
+  { id: 6,  group: 'B', img: 'https://picsum.photos/seed/techB2/1200/628' },
+  // 正方形 (1080x1080) - Instagram投稿
+  { id: 7,  group: 'A', img: 'https://picsum.photos/seed/cosmA3/1080/1080' },
+  { id: 8,  group: 'E', img: 'https://picsum.photos/seed/travelE1/1080/1080' },
+  { id: 9,  group: 'C', img: 'https://picsum.photos/seed/foodC2/1080/1080' },
+  { id: 10, group: 'D', img: 'https://picsum.photos/seed/fashD2/1080/1080' },
+  { id: 11, group: 'F', img: 'https://picsum.photos/seed/sportF1/1080/1080' },
+  { id: 12, group: 'B', img: 'https://picsum.photos/seed/techB3/1080/1080' },
+  // 縦長 (1080x1920) - Instagram/TikTokストーリー
+  { id: 13, group: 'E', img: 'https://picsum.photos/seed/travelE2/1080/1920' },
+  { id: 14, group: 'C', img: 'https://picsum.photos/seed/foodC3/1080/1920' },
+  { id: 15, group: 'F', img: 'https://picsum.photos/seed/sportF2/1080/1920' },
+  { id: 16, group: 'D', img: 'https://picsum.photos/seed/fashD3/1080/1920' },
+  { id: 17, group: 'A', img: 'https://picsum.photos/seed/cosmA4/1080/1920' },
+  { id: 18, group: 'E', img: 'https://picsum.photos/seed/travelE3/1080/1920' },
+  // 横長 (1200x628) 追加
+  { id: 19, group: 'F', img: 'https://picsum.photos/seed/sportF3/1200/628' },
+  { id: 20, group: 'B', img: 'https://picsum.photos/seed/techB4/1200/628' },
+  // 正方形 (1080x1080) 追加
+  { id: 21, group: 'G', img: 'https://picsum.photos/seed/intG1/1080/1080' },
+  { id: 22, group: 'G', img: 'https://picsum.photos/seed/intG2/1080/1080' },
+  // 縦長 (1080x1920) 追加
+  { id: 23, group: 'G', img: 'https://picsum.photos/seed/intG3/1080/1920' },
+  { id: 24, group: 'H', img: 'https://picsum.photos/seed/luxH1/1200/628' },
+];
+
+// State
+let items = BANNERS.map(b => ({ ...b, status: 'pending', reasons: [], detail: '' }));
+let current = 0;
+let historyStack = [];
+let okCount = 0, ngCount = 0;
+let dragging = false, startX = 0, startY = 0, dx = 0;
+let cardEl = null;
+
+// --- Similar info ---
+function getSimilarJudged(item) {
+  return items.filter(i => i.id !== item.id && i.group === item.group && i.status !== 'pending');
+}
+
+function updateAiBox() {
+  const box = document.getElementById('aiBox');
+  const body = document.getElementById('aiBody');
+
+  if (current >= items.length) {
+    box.classList.remove('visible');
+    box.classList.add('hidden');
+    return;
+  }
+
+  const item = items[current];
+  const judged = getSimilarJudged(item);
+
+  if (judged.length === 0) {
+    box.classList.remove('visible');
+    box.classList.add('hidden');
+    return;
+  }
+
+  box.classList.remove('hidden');
+
+  const okOnes = judged.filter(i => i.status === 'ok');
+  const ngOnes = judged.filter(i => i.status === 'ng');
+
+  let messages = [];
+  if (okOnes.length === 1) {
+    messages.push(`類似のバナーを先ほど <span class="ai-status-ok">OK</span> にしました`);
+  } else if (okOnes.length > 1) {
+    messages.push(`類似のバナー${okOnes.length}件を先ほど <span class="ai-status-ok">OK</span> にしました`);
+  }
+  if (ngOnes.length === 1) {
+    messages.push(`類似のバナーを先ほど <span class="ai-status-ng">NG</span> にしました`);
+  } else if (ngOnes.length > 1) {
+    messages.push(`類似のバナー${ngOnes.length}件を先ほど <span class="ai-status-ng">NG</span> にしました`);
+  }
+
+  body.innerHTML = messages.join('<br>');
+
+  // Animate in
+  requestAnimationFrame(() => {
+    box.classList.add('visible');
+  });
+}
+
+// --- Build card stack ---
+function buildStack() {
+  const stack = document.getElementById('stack');
+  stack.innerHTML = '';
+
+  if (current >= items.length) {
+    enterReviewPhase();
+    return;
+  }
+
+  for (let i = Math.min(current + 2, items.length - 1); i >= current; i--) {
+    const offset = i - current;
+    const item = items[i];
+    const card = document.createElement('div');
+    card.className = 'swipe-card';
+    card.style.zIndex = 10 - offset;
+    card.style.transform = `scale(${1 - offset * 0.04}) translateY(${offset * 10}px)`;
+    card.style.opacity = offset === 0 ? 1 : 0.6;
+
+    card.innerHTML = `
+      <img src="${item.img}" alt="Banner ${item.id}">
+      <div class="overlay-label label-ok">OK</div>
+      <div class="overlay-label label-ng">NG</div>
+      <div class="card-counter">${i + 1} / ${items.length}</div>
+    `;
+
+    if (offset === 0) {
+      card.addEventListener('pointerdown', onPointerDown);
+      cardEl = card;
+    }
+    stack.appendChild(card);
+  }
+
+  updateAiBox();
+}
+
+function updateUI() {
+  const checked = okCount + ngCount;
+  document.getElementById('pFill').style.width = `${(checked / items.length) * 100}%`;
+  document.getElementById('pText').textContent = `${checked} / ${items.length}`;
+  document.getElementById('sOk').textContent = `OK: ${okCount}`;
+  document.getElementById('sNg').textContent = `NG: ${ngCount}`;
+}
+
+// --- Drag ---
+function onPointerDown(e) {
+  if (current >= items.length) return;
+  dragging = true;
+  startX = e.clientX;
+  startY = e.clientY;
+  dx = 0;
+  cardEl.style.transition = 'none';
+  cardEl.setPointerCapture(e.pointerId);
+  cardEl.addEventListener('pointermove', onPointerMove);
+  cardEl.addEventListener('pointerup', onPointerUp);
+}
+
+function onPointerMove(e) {
+  if (!dragging) return;
+  dx = e.clientX - startX;
+  const dy = (e.clientY - startY) * 0.3;
+  const rotate = dx * 0.06;
+  cardEl.style.transform = `translate(${dx}px, ${dy}px) rotate(${rotate}deg)`;
+
+  const t = 60;
+  cardEl.querySelector('.label-ok').style.opacity = dx > t ? Math.min((dx - t) / 80, 1) : 0;
+  cardEl.querySelector('.label-ng').style.opacity = dx < -t ? Math.min((-dx - t) / 80, 1) : 0;
+}
+
+function onPointerUp(e) {
+  if (!dragging) return;
+  dragging = false;
+  cardEl.removeEventListener('pointermove', onPointerMove);
+  cardEl.removeEventListener('pointerup', onPointerUp);
+
+  if (dx > 100) {
+    doJudge('ok');
+  } else if (dx < -100) {
+    doJudge('ng');
+  } else {
+    cardEl.style.transition = 'transform 0.3s ease';
+    cardEl.style.transform = 'scale(1) translateY(0)';
+    cardEl.querySelector('.label-ok').style.opacity = 0;
+    cardEl.querySelector('.label-ng').style.opacity = 0;
+  }
+}
+
+// --- Judge (no interruption, just fly) ---
+function doJudge(status) {
+  if (current >= items.length) return;
+
+  const item = items[current];
+  const direction = status === 'ok' ? 'fly-right' : 'fly-left';
+  cardEl.style.transition = 'none';
+  cardEl.classList.add(direction);
+
+  historyStack.push({ index: current, prevStatus: item.status });
+  item.status = status;
+  if (status === 'ok') okCount++; else ngCount++;
+  current++;
+  updateUI();
+
+  setTimeout(() => buildStack(), 320);
+}
+
+// --- Undo ---
+function undo() {
+  if (historyStack.length === 0) return;
+  const entry = historyStack.pop();
+  const item = items[entry.index];
+  if (item.status === 'ok') okCount--;
+  else if (item.status === 'ng') ngCount--;
+  item.status = 'pending';
+  item.reasons = [];
+  current = entry.index;
+  updateUI();
+  buildStack();
+}
+
+// --- Phase 2: NG Review ---
+function enterReviewPhase() {
+  const ngItems = items.filter(i => i.status === 'ng');
+
+  if (ngItems.length === 0) {
+    enterDonePhase();
+    return;
+  }
+
+  document.getElementById('phaseSwipe').style.display = 'none';
+  document.getElementById('hintBar').style.display = 'none';
+  document.getElementById('phaseReview').classList.add('active');
+  document.getElementById('reviewSubtext').textContent =
+    `NGバナー ${ngItems.length}件 にNG理由をタグ付けしてください`;
+
+  const list = document.getElementById('reviewList');
+  list.innerHTML = ngItems.map((item, idx) => `
+    <div class="review-item" data-id="${item.id}">
+      <div class="review-thumb-wrap">
+        <img class="review-thumb" src="${item.img}" alt="">
+      </div>
+      <div class="review-body">
+        <div class="review-label">NG — #${item.id}</div>
+        <button class="r-ditto ${idx > 0 ? 'show' : ''}" data-id="${item.id}">
+          ↑ 前と同じ理由を適用
+        </button>
+        <div class="review-tags">
+          ${NG_CATEGORIES.map(c => `
+            <button class="r-tag" data-id="${item.id}" data-cat="${c.key}">${c.label}</button>
+          `).join('')}
+        </div>
+        <textarea class="r-detail" data-id="${item.id}"
+          placeholder="NG理由の詳細を記入..."></textarea>
+      </div>
+    </div>
+  `).join('');
+
+  // Tag click → show/hide detail textarea
+  list.querySelectorAll('.r-tag').forEach(btn => {
+    btn.addEventListener('click', () => {
+      btn.classList.toggle('active');
+      const id = btn.dataset.id;
+      const itemEl = btn.closest('.review-item');
+      const textarea = itemEl.querySelector('.r-detail');
+      const hasActive = itemEl.querySelectorAll('.r-tag.active').length > 0;
+      textarea.classList.toggle('show', hasActive);
+
+      // Set placeholder from last selected category
+      if (btn.classList.contains('active')) {
+        const cat = NG_CATEGORIES.find(c => c.key === btn.dataset.cat);
+        if (cat) textarea.placeholder = cat.placeholder;
+      }
+
+      syncReasons(parseInt(id));
+    });
+  });
+
+  // Textarea input → sync to data
+  list.querySelectorAll('.r-detail').forEach(ta => {
+    ta.addEventListener('input', () => {
+      syncReasons(parseInt(ta.dataset.id));
+    });
+  });
+
+  // Ditto button
+  list.querySelectorAll('.r-ditto').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const id = parseInt(btn.dataset.id);
+      const itemIdx = ngItems.findIndex(i => i.id === id);
+      if (itemIdx <= 0) return;
+
+      const prevItem = ngItems[itemIdx - 1];
+      const curItemEl = btn.closest('.review-item');
+
+      // Copy categories
+      const prevItemEl = list.querySelectorAll('.review-item')[itemIdx - 1];
+      const prevActiveCats = [...prevItemEl.querySelectorAll('.r-tag.active')].map(t => t.dataset.cat);
+
+      curItemEl.querySelectorAll('.r-tag').forEach(t => {
+        t.classList.toggle('active', prevActiveCats.includes(t.dataset.cat));
+      });
+
+      // Copy detail text
+      const prevText = prevItemEl.querySelector('.r-detail').value;
+      const curTextarea = curItemEl.querySelector('.r-detail');
+      curTextarea.value = prevText;
+      curTextarea.classList.toggle('show', prevActiveCats.length > 0);
+
+      syncReasons(id);
+
+      // Visual feedback
+      btn.textContent = '適用しました';
+      btn.style.borderColor = '#22c55e';
+      btn.style.color = '#4ade80';
+      setTimeout(() => {
+        btn.textContent = '↑ 前と同じ理由を適用';
+        btn.style.borderColor = '';
+        btn.style.color = '';
+      }, 1500);
+    });
+  });
+}
+
+function syncReasons(id) {
+  const item = items.find(i => i.id === id);
+  if (!item) return;
+  const itemEl = document.querySelector(`.review-item[data-id="${id}"]`);
+  const cats = [...itemEl.querySelectorAll('.r-tag.active')].map(t => {
+    const c = NG_CATEGORIES.find(c => c.key === t.dataset.cat);
+    return c ? c.label : t.dataset.cat;
+  });
+  const detail = itemEl.querySelector('.r-detail').value.trim();
+  item.reasons = cats;
+  item.detail = detail;
+}
+
+document.getElementById('reviewDone').addEventListener('click', enterDonePhase);
+
+// --- Phase 3: Done ---
+function enterDonePhase() {
+  document.getElementById('phaseSwipe').style.display = 'none';
+  document.getElementById('phaseReview').classList.remove('active');
+  document.getElementById('hintBar').style.display = 'none';
+  document.getElementById('phaseDone').classList.add('active');
+  document.getElementById('finalOk').textContent = `OK: ${okCount}`;
+  document.getElementById('finalNg').textContent = `NG: ${ngCount}`;
+
+  // Log results
+  console.log('=== Review Results ===');
+  items.forEach(i => {
+    const cats = i.reasons.length ? ` [${i.reasons.join(', ')}]` : '';
+    const detail = i.detail ? ` → ${i.detail}` : '';
+    console.log(`#${i.id} ${i.status.toUpperCase()}${cats}${detail}`);
+  });
+}
+
+// --- Button clicks ---
+document.getElementById('btnOk').addEventListener('click', () => doJudge('ok'));
+document.getElementById('btnNg').addEventListener('click', () => doJudge('ng'));
+document.getElementById('btnUndo').addEventListener('click', undo);
+
+// --- Keyboard ---
+document.addEventListener('keydown', (e) => {
+  // Only in swipe phase
+  if (document.getElementById('phaseSwipe').style.display === 'none') return;
+  if (e.key === 'ArrowRight') { e.preventDefault(); doJudge('ok'); }
+  if (e.key === 'ArrowLeft')  { e.preventDefault(); doJudge('ng'); }
+  if (e.key === 'z' || e.key === 'Z') { e.preventDefault(); undo(); }
+});
+
+// --- Init ---
+buildStack();
+updateUI();
+</script>
+</body>
+</html>

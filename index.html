@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>画像チェック プロトタイプ</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #0f1117;
+    color: #e0e0e0;
+    min-height: 100vh;
+  }
+
+  /* Header */
+  .header {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: #161822;
+    border-bottom: 1px solid #2a2d3a;
+    padding: 12px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+
+  .header h1 {
+    font-size: 18px;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  .progress-section {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex: 1;
+    max-width: 400px;
+  }
+
+  .progress-bar-bg {
+    flex: 1;
+    height: 8px;
+    background: #2a2d3a;
+    border-radius: 4px;
+    overflow: hidden;
+  }
+
+  .progress-bar-fill {
+    height: 100%;
+    border-radius: 4px;
+    background: linear-gradient(90deg, #6366f1, #8b5cf6);
+    transition: width 0.3s ease;
+  }
+
+  .progress-text {
+    font-size: 13px;
+    color: #9ca3af;
+    white-space: nowrap;
+  }
+
+  .filters {
+    display: flex;
+    gap: 6px;
+  }
+
+  .filter-btn {
+    padding: 6px 14px;
+    border: 1px solid #2a2d3a;
+    border-radius: 6px;
+    background: transparent;
+    color: #9ca3af;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .filter-btn:hover { border-color: #6366f1; color: #c7d2fe; }
+  .filter-btn.active { background: #6366f1; border-color: #6366f1; color: #fff; }
+
+  .filter-btn .count {
+    margin-left: 4px;
+    opacity: 0.7;
+  }
+
+  /* Grid */
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 16px;
+    padding: 20px 24px;
+  }
+
+  /* Card */
+  .card {
+    background: #1c1f2e;
+    border-radius: 12px;
+    overflow: hidden;
+    border: 2px solid transparent;
+    transition: all 0.2s;
+    position: relative;
+  }
+
+  .card:hover { border-color: #3b3e52; transform: translateY(-2px); }
+  .card.status-ok { border-color: #22c55e; }
+  .card.status-ng { border-color: #ef4444; }
+  .card.selected { border-color: #6366f1; box-shadow: 0 0 0 2px rgba(99,102,241,0.3); }
+
+  .card-image-wrap {
+    position: relative;
+    aspect-ratio: 16/9;
+    overflow: hidden;
+    cursor: pointer;
+  }
+
+  .card-image-wrap img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+
+  .status-badge {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    padding: 2px 10px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 700;
+    display: none;
+  }
+
+  .card.status-ok .status-badge {
+    display: block;
+    background: #22c55e;
+    color: #fff;
+  }
+
+  .card.status-ng .status-badge {
+    display: block;
+    background: #ef4444;
+    color: #fff;
+  }
+
+  .card-body { padding: 12px; }
+
+  .card-title {
+    font-size: 14px;
+    line-height: 1.5;
+    margin-bottom: 10px;
+    min-height: 42px;
+  }
+
+  .card-actions {
+    display: flex;
+    gap: 8px;
+  }
+
+  .btn-ok, .btn-ng {
+    flex: 1;
+    padding: 8px;
+    border: none;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .btn-ok {
+    background: #1a3a2a;
+    color: #4ade80;
+  }
+  .btn-ok:hover { background: #22c55e; color: #fff; }
+
+  .btn-ng {
+    background: #3a1a1a;
+    color: #f87171;
+  }
+  .btn-ng:hover { background: #ef4444; color: #fff; }
+
+  /* NG Reason Tags */
+  .ng-reasons {
+    margin-top: 8px;
+    display: none;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .card.status-ng .ng-reasons { display: flex; }
+
+  .ng-tag {
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-size: 11px;
+    cursor: pointer;
+    border: 1px solid #3a2a2a;
+    background: transparent;
+    color: #f87171;
+    transition: all 0.15s;
+  }
+
+  .ng-tag:hover, .ng-tag.active {
+    background: #ef4444;
+    border-color: #ef4444;
+    color: #fff;
+  }
+
+  /* Modal (enlarged view) */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.85);
+    z-index: 200;
+    justify-content: center;
+    align-items: center;
+    padding: 40px;
+  }
+
+  .modal-overlay.open { display: flex; }
+
+  .modal-content {
+    background: #1c1f2e;
+    border-radius: 16px;
+    max-width: 800px;
+    width: 100%;
+    max-height: 90vh;
+    overflow: auto;
+  }
+
+  .modal-image {
+    width: 100%;
+    aspect-ratio: 16/9;
+    object-fit: cover;
+    border-radius: 16px 16px 0 0;
+  }
+
+  .modal-body {
+    padding: 24px;
+  }
+
+  .modal-title {
+    font-size: 20px;
+    margin-bottom: 16px;
+  }
+
+  .modal-meta {
+    font-size: 13px;
+    color: #9ca3af;
+    margin-bottom: 16px;
+  }
+
+  .modal-actions {
+    display: flex;
+    gap: 12px;
+  }
+
+  .modal-actions .btn-ok,
+  .modal-actions .btn-ng {
+    padding: 12px 32px;
+    font-size: 15px;
+  }
+
+  .modal-close {
+    position: absolute;
+    top: 16px;
+    right: 24px;
+    background: none;
+    border: none;
+    color: #9ca3af;
+    font-size: 28px;
+    cursor: pointer;
+  }
+
+  .modal-close:hover { color: #fff; }
+
+  /* Keyboard hint */
+  .keyboard-hint {
+    position: fixed;
+    bottom: 16px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #1c1f2e;
+    border: 1px solid #2a2d3a;
+    border-radius: 8px;
+    padding: 8px 20px;
+    font-size: 12px;
+    color: #6b7280;
+    display: flex;
+    gap: 16px;
+    z-index: 50;
+  }
+
+  .keyboard-hint kbd {
+    background: #2a2d3a;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-family: inherit;
+    color: #d1d5db;
+  }
+
+  /* Stats bar */
+  .stats {
+    display: flex;
+    gap: 20px;
+    font-size: 13px;
+  }
+
+  .stat-ok { color: #4ade80; }
+  .stat-ng { color: #f87171; }
+  .stat-pending { color: #9ca3af; }
+
+  /* Empty state */
+  .empty-state {
+    grid-column: 1 / -1;
+    text-align: center;
+    padding: 80px 20px;
+    color: #6b7280;
+    font-size: 15px;
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>画像チェック</h1>
+  <div class="progress-section">
+    <div class="progress-bar-bg">
+      <div class="progress-bar-fill" id="progressBar" style="width:0%"></div>
+    </div>
+    <span class="progress-text" id="progressText">0 / 0</span>
+  </div>
+  <div class="stats">
+    <span class="stat-ok" id="statOk">OK: 0</span>
+    <span class="stat-ng" id="statNg">NG: 0</span>
+    <span class="stat-pending" id="statPending">未: 0</span>
+  </div>
+  <div class="filters">
+    <button class="filter-btn active" data-filter="all">すべて<span class="count" id="countAll"></span></button>
+    <button class="filter-btn" data-filter="pending">未チェック<span class="count" id="countPending"></span></button>
+    <button class="filter-btn" data-filter="ok">OK<span class="count" id="countOk"></span></button>
+    <button class="filter-btn" data-filter="ng">NG<span class="count" id="countNg"></span></button>
+  </div>
+</div>
+
+<div class="grid" id="grid"></div>
+
+<!-- Modal -->
+<div class="modal-overlay" id="modal">
+  <button class="modal-close" onclick="closeModal()">&times;</button>
+  <div class="modal-content">
+    <img class="modal-image" id="modalImage" src="" alt="">
+    <div class="modal-body">
+      <div class="modal-title" id="modalTitle"></div>
+      <div class="modal-meta" id="modalMeta"></div>
+      <div class="modal-actions">
+        <button class="btn-ok" onclick="modalAction('ok')">OK</button>
+        <button class="btn-ng" onclick="modalAction('ng')">NG</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="keyboard-hint">
+  <span><kbd>J</kbd><kbd>K</kbd> 選択移動</span>
+  <span><kbd>→</kbd> OK</span>
+  <span><kbd>←</kbd> NG</span>
+  <span><kbd>Enter</kbd> 拡大</span>
+  <span><kbd>Esc</kbd> 閉じる</span>
+</div>
+
+<script>
+const NG_REASONS = ['画質が悪い', 'テキスト被り', 'ブランド不一致', '構図が悪い', '色味が暗い', 'その他'];
+
+const SAMPLE_DATA = [
+  { id: 1,  title: '【期間限定】春の新作コレクション今だけ特別価格でご提供中です', img: 'https://picsum.photos/seed/ad01/600/340' },
+  { id: 2,  title: '累計販売100万個突破！大人気スキンケアセットが再入荷しました', img: 'https://picsum.photos/seed/ad02/600/340' },
+  { id: 3,  title: '初回限定50%OFF！プロも認めた高機能ワイヤレスイヤホン新登場', img: 'https://picsum.photos/seed/ad03/600/340' },
+  { id: 4,  title: '今だけ送料無料！こだわり素材のオーガニックコットンTシャツ特集', img: 'https://picsum.photos/seed/ad04/600/340' },
+  { id: 5,  title: '忙しい朝でも簡単3分！栄養満点の時短朝食レシピキット発売開始', img: 'https://picsum.photos/seed/ad05/600/340' },
+  { id: 6,  title: '会員限定ポイント10倍キャンペーン開催中！お得にお買い物しよう', img: 'https://picsum.photos/seed/ad06/600/340' },
+  { id: 7,  title: 'プロのカメラマンが選ぶ！初心者におすすめのミラーレスカメラ特集', img: 'https://picsum.photos/seed/ad07/600/340' },
+  { id: 8,  title: '夏本番まであと少し！紫外線対策に最適な日焼け止めランキング発表', img: 'https://picsum.photos/seed/ad08/600/340' },
+  { id: 9,  title: 'リモートワークを快適に！人間工学に基づいたオフィスチェア新発売', img: 'https://picsum.photos/seed/ad09/600/340' },
+  { id: 10, title: '毎日のコーヒータイムが変わる！自家焙煎スペシャルティコーヒー豆', img: 'https://picsum.photos/seed/ad10/600/340' },
+  { id: 11, title: '旅行好き必見！軽量コンパクトなキャリーケースが驚きの価格で登場', img: 'https://picsum.photos/seed/ad11/600/340' },
+  { id: 12, title: 'お子様の成長を記録！高画質フォトブック作成サービスが月額無料に', img: 'https://picsum.photos/seed/ad12/600/340' },
+  { id: 13, title: '在庫残りわずか！職人手作りの本革ビジネスバッグが今なら20%引き', img: 'https://picsum.photos/seed/ad13/600/340' },
+  { id: 14, title: '新生活応援フェア！家具・家電まとめ買いでさらにお得なセット割引', img: 'https://picsum.photos/seed/ad14/600/340' },
+  { id: 15, title: '健康志向のあなたに！国産有機野菜の定期便が初月半額キャンペーン', img: 'https://picsum.photos/seed/ad15/600/340' },
+  { id: 16, title: 'ランニング初心者歓迎！足に優しい最新クッション搭載シューズ特集', img: 'https://picsum.photos/seed/ad16/600/340' },
+  { id: 17, title: '大切な人への贈り物に！名入れ可能な上質レザーウォレットはいかが', img: 'https://picsum.photos/seed/ad17/600/340' },
+  { id: 18, title: 'ペットとの暮らしをもっと豊かに！獣医師監修のプレミアムフード新発売', img: 'https://picsum.photos/seed/ad18/600/340' },
+  { id: 19, title: '雨の日も快適ドライブ！最新撥水コーティング剤で視界クリアに保つ', img: 'https://picsum.photos/seed/ad19/600/340' },
+  { id: 20, title: '読書の秋にぴったり！話題のベストセラー小説がまとめ買い30%OFF', img: 'https://picsum.photos/seed/ad20/600/340' },
+  { id: 21, title: '自宅で本格エステ体験！最新美顔器が期間限定で特別モニター価格に', img: 'https://picsum.photos/seed/ad21/600/340' },
+  { id: 22, title: 'キャンプデビューを応援！テント・寝袋・チェアの3点セットが超特価', img: 'https://picsum.photos/seed/ad22/600/340' },
+  { id: 23, title: '仕事効率が劇的アップ！AIが搭載されたスマートノートが話題沸騰中', img: 'https://picsum.photos/seed/ad23/600/340' },
+  { id: 24, title: '寒い冬もぽかぽか！遠赤外線ヒーター内蔵のあったかブランケット', img: 'https://picsum.photos/seed/ad24/600/340' },
+];
+
+let items = SAMPLE_DATA.map(d => ({ ...d, status: 'pending', reasons: [] }));
+let currentFilter = 'all';
+let selectedIndex = -1;
+let modalItemId = null;
+
+function render() {
+  const grid = document.getElementById('grid');
+  const filtered = getFiltered();
+
+  if (filtered.length === 0) {
+    grid.innerHTML = '<div class="empty-state">表示するアイテムがありません</div>';
+  } else {
+    grid.innerHTML = filtered.map((item, idx) => `
+      <div class="card status-${item.status} ${idx === selectedIndex ? 'selected' : ''}" data-id="${item.id}">
+        <div class="card-image-wrap" onclick="openModal(${item.id})">
+          <img src="${item.img}" alt="" loading="lazy">
+          <div class="status-badge">${item.status === 'ok' ? 'OK' : 'NG'}</div>
+        </div>
+        <div class="card-body">
+          <div class="card-title">${item.title}</div>
+          <div class="card-actions">
+            <button class="btn-ok" onclick="setStatus(${item.id}, 'ok')">OK</button>
+            <button class="btn-ng" onclick="setStatus(${item.id}, 'ng')">NG</button>
+          </div>
+          <div class="ng-reasons">
+            ${NG_REASONS.map(r => `
+              <button class="ng-tag ${item.reasons.includes(r) ? 'active' : ''}"
+                      onclick="toggleReason(${item.id}, '${r}')">${r}</button>
+            `).join('')}
+          </div>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  updateStats();
+}
+
+function getFiltered() {
+  if (currentFilter === 'all') return items;
+  return items.filter(i => i.status === currentFilter);
+}
+
+function setStatus(id, status) {
+  const item = items.find(i => i.id === id);
+  if (!item) return;
+  // Toggle: 同じステータスをもう一度押したらpendingに戻す
+  if (item.status === status) {
+    item.status = 'pending';
+    item.reasons = [];
+  } else {
+    item.status = status;
+    if (status === 'ok') item.reasons = [];
+  }
+  render();
+}
+
+function toggleReason(id, reason) {
+  const item = items.find(i => i.id === id);
+  if (!item) return;
+  const idx = item.reasons.indexOf(reason);
+  if (idx >= 0) item.reasons.splice(idx, 1);
+  else item.reasons.push(reason);
+  render();
+}
+
+function updateStats() {
+  const ok = items.filter(i => i.status === 'ok').length;
+  const ng = items.filter(i => i.status === 'ng').length;
+  const pending = items.filter(i => i.status === 'pending').length;
+  const checked = ok + ng;
+  const total = items.length;
+
+  document.getElementById('progressBar').style.width = `${(checked / total * 100)}%`;
+  document.getElementById('progressText').textContent = `${checked} / ${total}`;
+  document.getElementById('statOk').textContent = `OK: ${ok}`;
+  document.getElementById('statNg').textContent = `NG: ${ng}`;
+  document.getElementById('statPending').textContent = `未: ${pending}`;
+  document.getElementById('countAll').textContent = ` (${total})`;
+  document.getElementById('countPending').textContent = ` (${pending})`;
+  document.getElementById('countOk').textContent = ` (${ok})`;
+  document.getElementById('countNg').textContent = ` (${ng})`;
+}
+
+// Filters
+document.querySelectorAll('.filter-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentFilter = btn.dataset.filter;
+    selectedIndex = -1;
+    render();
+  });
+});
+
+// Modal
+function openModal(id) {
+  const item = items.find(i => i.id === id);
+  if (!item) return;
+  modalItemId = id;
+  document.getElementById('modalImage').src = item.img;
+  document.getElementById('modalTitle').textContent = item.title;
+  document.getElementById('modalMeta').textContent = `ID: ${item.id} ／ ステータス: ${item.status === 'pending' ? '未チェック' : item.status.toUpperCase()}${item.reasons.length ? ' ／ 理由: ' + item.reasons.join(', ') : ''}`;
+  document.getElementById('modal').classList.add('open');
+}
+
+function closeModal() {
+  document.getElementById('modal').classList.remove('open');
+  modalItemId = null;
+}
+
+function modalAction(status) {
+  if (modalItemId) setStatus(modalItemId, status);
+  closeModal();
+}
+
+document.getElementById('modal').addEventListener('click', (e) => {
+  if (e.target === document.getElementById('modal')) closeModal();
+});
+
+// Keyboard navigation
+document.addEventListener('keydown', (e) => {
+  // Modal open
+  if (document.getElementById('modal').classList.contains('open')) {
+    if (e.key === 'Escape') closeModal();
+    if (e.key === 'ArrowRight') { modalAction('ok'); }
+    if (e.key === 'ArrowLeft') { modalAction('ng'); }
+    return;
+  }
+
+  const filtered = getFiltered();
+  if (filtered.length === 0) return;
+
+  if (e.key === 'j' || e.key === 'J') {
+    e.preventDefault();
+    selectedIndex = Math.min(selectedIndex + 1, filtered.length - 1);
+    render();
+    scrollToSelected();
+  }
+  if (e.key === 'k' || e.key === 'K') {
+    e.preventDefault();
+    selectedIndex = Math.max(selectedIndex - 1, 0);
+    render();
+    scrollToSelected();
+  }
+  if (e.key === 'ArrowRight' && selectedIndex >= 0) {
+    e.preventDefault();
+    setStatus(filtered[selectedIndex].id, 'ok');
+  }
+  if (e.key === 'ArrowLeft' && selectedIndex >= 0) {
+    e.preventDefault();
+    setStatus(filtered[selectedIndex].id, 'ng');
+  }
+  if (e.key === 'Enter' && selectedIndex >= 0) {
+    e.preventDefault();
+    openModal(filtered[selectedIndex].id);
+  }
+});
+
+function scrollToSelected() {
+  const cards = document.querySelectorAll('.card');
+  if (cards[selectedIndex]) {
+    cards[selectedIndex].scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+}
+
+// Init
+render();
+</script>
+</body>
+</html>
