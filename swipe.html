@@ -136,12 +136,12 @@
   }
   .hint kbd { background: #1e2030; padding: 1px 5px; border-radius: 3px; color: #9ca3af; }
 
-  @keyframes flyRight { to { transform: translateX(150%) rotate(20deg); opacity: 0; } }
-  @keyframes flyLeft  { to { transform: translateX(-150%) rotate(-20deg); opacity: 0; } }
-  @keyframes flyUp    { to { transform: translateY(-120%) scale(0.9); opacity: 0; } }
-  .fly-right { animation: flyRight 0.35s ease forwards; }
-  .fly-left  { animation: flyLeft  0.35s ease forwards; }
-  .fly-up    { animation: flyUp   0.35s ease forwards; }
+  @keyframes swipeRight { to { transform: translateX(30px) scale(0.95); opacity: 0; } }
+  @keyframes swipeLeft  { to { transform: translateX(-30px) scale(0.95); opacity: 0; } }
+  @keyframes fadeUp     { to { transform: translateY(-10px) scale(0.97); opacity: 0; } }
+  .fly-right { animation: swipeRight 0.25s ease forwards; }
+  .fly-left  { animation: swipeLeft  0.25s ease forwards; }
+  .fly-up    { animation: fadeUp    0.25s ease forwards; }
 
   /* ===== Phase: Transition ===== */
   .phase-transition {
