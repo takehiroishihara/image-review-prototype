@@ -43,7 +43,7 @@
 
   .stats { display: flex; gap: 10px; font-size: 12px; white-space: nowrap; }
   .s-ok { color: #4ade80; }
-  .s-ng { color: #f87171; }
+  .s-ng { color: #fbbf24; }
 
   /* ===== Phase: Swipe ===== */
   .phase { display: none; flex: 1; flex-direction: column; overflow: hidden; }
@@ -78,7 +78,7 @@
     font-size: 24px; font-weight: 800; letter-spacing: 2px; opacity: 0; pointer-events: none;
   }
   .label-ok { right: 20px; background: rgba(34,197,94,0.9); color: #fff; transform: rotate(12deg); }
-  .label-ng { left: 20px; background: rgba(239,68,68,0.9); color: #fff; transform: rotate(-12deg); }
+  .label-ng { left: 20px; background: rgba(251,191,36,0.9); color: #fff; transform: rotate(-12deg); }
 
   .card-counter {
     position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%);
@@ -95,8 +95,8 @@
   .act-btn:active { transform: scale(0.9); }
   .btn-undo { width: 42px; height: 42px; border-color: #6b7280; color: #6b7280; font-size: 16px; }
   .btn-undo:hover { background: #6b7280; color: #fff; }
-  .act-ng { border-color: #ef4444; color: #ef4444; }
-  .act-ng:hover { background: #ef4444; color: #fff; }
+  .act-ng { border-color: #fbbf24; color: #fbbf24; }
+  .act-ng:hover { background: #fbbf24; color: #000; }
   .act-ok { border-color: #22c55e; color: #22c55e; }
   .act-ok:hover { background: #22c55e; color: #fff; }
 
@@ -129,7 +129,7 @@
 
   .ai-body { font-size: 12px; line-height: 1.5; color: #b0b4d0; }
   .ai-status-ok { color: #4ade80; font-weight: 600; }
-  .ai-status-ng { color: #f87171; font-weight: 600; }
+  .ai-status-ng { color: #fbbf24; font-weight: 600; }
 
   .hint {
     font-size: 10px; color: #4b5563; display: flex; gap: 12px; flex-shrink: 0;
@@ -205,7 +205,7 @@
   }
 
   .review-card-label {
-    font-size: 12px; color: #f87171; font-weight: 600;
+    font-size: 12px; color: #fbbf24; font-weight: 600;
   }
 
   .review-card-counter {
@@ -219,8 +219,8 @@
     background: transparent; color: #d1d5db; font-size: 12px;
     cursor: pointer; transition: all 0.15s;
   }
-  .r-tag:hover { border-color: #ef4444; color: #f87171; }
-  .r-tag.active { background: #ef4444; border-color: #ef4444; color: #fff; }
+  .r-tag:hover { border-color: #fbbf24; color: #fcd34d; }
+  .r-tag.active { background: #d97706; border-color: #d97706; color: #fff; }
 
   .r-detail {
     width: 100%;
@@ -238,7 +238,7 @@
   }
   .r-detail.show { display: block; }
   .r-detail::placeholder { color: #4b5563; }
-  .r-detail:focus { outline: none; border-color: #ef4444; }
+  .r-detail:focus { outline: none; border-color: #fbbf24; }
 
   .r-ditto {
     padding: 6px 12px; border-radius: 6px;
@@ -258,10 +258,10 @@
   .review-submit {
     flex: 1;
     padding: 12px; border: none; border-radius: 10px;
-    background: #ef4444; color: #fff; font-size: 14px; font-weight: 600;
+    background: #d97706; color: #fff; font-size: 14px; font-weight: 600;
     cursor: pointer; transition: background 0.15s;
   }
-  .review-submit:hover { background: #dc2626; }
+  .review-submit:hover { background: #b45309; }
 
   .review-skip {
     padding: 12px 20px; border: 1px solid #2a2d3a; border-radius: 10px;
@@ -298,7 +298,7 @@
   </div>
   <div class="stats">
     <span class="s-ok" id="sOk">OK: 0</span>
-    <span class="s-ng" id="sNg">NG: 0</span>
+    <span class="s-ng" id="sNg">修正: 0</span>
   </div>
 </div>
 
@@ -307,7 +307,7 @@
   <div class="stack" id="stack"></div>
   <div class="actions">
     <button class="act-btn btn-undo" id="btnUndo" title="戻す">↩</button>
-    <button class="act-btn act-ng" id="btnNg" title="NG">✕</button>
+    <button class="act-btn act-ng" id="btnNg" title="修正">✕</button>
     <button class="act-btn act-ok" id="btnOk" title="OK">✓</button>
   </div>
   <div class="ai-box hidden" id="aiBox">
@@ -316,7 +316,7 @@
   </div>
   <div class="hint" id="hintBar">
     <span><kbd>→</kbd> OK</span>
-    <span><kbd>←</kbd> NG</span>
+    <span><kbd>←</kbd> 修正</span>
     <span><kbd>Z</kbd> 戻す</span>
   </div>
 </div>
@@ -325,8 +325,8 @@
 <div class="phase phase-transition" id="phaseTransition">
   <div class="transition-icon">&#x1F389;</div>
   <h2>ありがとうございます！</h2>
-  <p>続いてNGバナーの<br>理由の詳細をお願いします</p>
-  <button class="transition-btn" id="transitionBtn">NG理由を入力する</button>
+  <p>続いて修正バナーの<br>理由の詳細をお願いします</p>
+  <button class="transition-btn" id="transitionBtn">修正理由を入力する</button>
 </div>
 
 <!-- Phase 2: NG Review (1-by-1) -->
@@ -351,12 +351,12 @@
 
 <script>
 const NG_CATEGORIES = [
-  { key: 'ng_word',    label: 'NGワード修正', ph: '例: 便秘はNG、宿便に変更' },
+  { key: 'ng_word',    label: 'ワード修正', ph: '例: 便秘はNG、宿便に変更' },
   { key: 'add_note',   label: '注釈追加',     ph: '例: ※画像はイメージ' },
   { key: 'del_note',   label: '注釈削除',     ph: '例: 全ての注釈を削除' },
   { key: 'fix_text',   label: 'テキスト修正', ph: '例: 1杯50円→99円に修正' },
   { key: 'del_elem',   label: '要素削除',     ph: '例: 「※パッケージは〜」を削除' },
-  { key: 'expression', label: '表現NG',       ph: '例: 効果を断定する表現はNG' },
+  { key: 'expression', label: '表現修正',     ph: '例: 効果を断定する表現は修正' },
   { key: 'other',      label: 'その他',       ph: '詳細を記入' },
 ];
 
@@ -425,7 +425,7 @@ function updateAiBox() {
   const ngN = judged.filter(i => i.status === 'ng').length;
   let msgs = [];
   if (okN) msgs.push(`類似バナー${okN > 1 ? okN + '件' : ''}を<span class="ai-status-ok">OK</span>にしました`);
-  if (ngN) msgs.push(`類似バナー${ngN > 1 ? ngN + '件' : ''}を<span class="ai-status-ng">NG</span>にしました`);
+  if (ngN) msgs.push(`類似バナー${ngN > 1 ? ngN + '件' : ''}を<span class="ai-status-ng">修正</span>にしました`);
   body.innerHTML = msgs.join('<br>');
   requestAnimationFrame(() => box.classList.add('visible'));
 }
@@ -447,7 +447,7 @@ function buildStack() {
     card.innerHTML = `
       <img src="${item.img}" alt="">
       <div class="overlay-label label-ok">OK</div>
-      <div class="overlay-label label-ng">NG</div>
+      <div class="overlay-label label-ng">修正</div>
       <div class="card-counter">${i + 1} / ${items.length}</div>
     `;
     if (offset === 0) { card.addEventListener('pointerdown', onPointerDown); cardEl = card; }
@@ -461,7 +461,7 @@ function updateUI() {
   document.getElementById('pFill').style.width = `${(checked / items.length) * 100}%`;
   document.getElementById('pText').textContent = `${checked}/${items.length}`;
   document.getElementById('sOk').textContent = `OK: ${okCount}`;
-  document.getElementById('sNg').textContent = `NG: ${ngCount}`;
+  document.getElementById('sNg').textContent = `修正: ${ngCount}`;
 }
 
 // ===== Swipe: Drag =====
@@ -551,7 +551,7 @@ function buildReviewCard() {
     <img class="review-card-img" src="${item.img}" alt="">
     <div class="review-card-body">
       <div style="display:flex; justify-content:space-between; align-items:center">
-        <span class="review-card-label">NG — #${item.id}</span>
+        <span class="review-card-label">修正 — #${item.id}</span>
         <span class="review-card-counter">${ngCurrent + 1} / ${ngItems.length}</span>
       </div>
       ${showDitto ? `<button class="r-ditto" id="dittoBtn">↑ 前と同じ理由を適用</button>` : ''}
@@ -560,7 +560,7 @@ function buildReviewCard() {
           `<button class="r-tag" data-cat="${c.key}">${c.label}</button>`
         ).join('')}
       </div>
-      <textarea class="r-detail" id="reviewDetail" placeholder="NG理由の詳細を記入..."></textarea>
+      <textarea class="r-detail" id="reviewDetail" placeholder="修正理由の詳細を記入..."></textarea>
     </div>
   `;
 
@@ -641,7 +641,7 @@ document.getElementById('reviewSkip').addEventListener('click', () => submitRevi
 function enterDone() {
   showPhase('phaseDone');
   document.getElementById('finalOk').textContent = `OK: ${okCount}`;
-  document.getElementById('finalNg').textContent = `NG: ${ngCount}`;
+  document.getElementById('finalNg').textContent = `修正: ${ngCount}`;
 
   console.log('=== Results ===');
   items.forEach(i => {
